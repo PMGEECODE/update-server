@@ -37,13 +37,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error || !latestRelease) {
-      return new NextResponse(
-        `version: ${latestRelease?.version ?? "0.0.0"}\nplatform: ${platform}\n`,
-        {
-          status: 200,
-          headers: { "Content-Type": "text/yaml" },
-        },
-      );
+      return new NextResponse(`version: 0.0.0\nplatform: ${platform}\n`, {
+        status: 200,
+        headers: { "Content-Type": "text/yaml" },
+      });
     }
 
     const release = latestRelease.releases as any;

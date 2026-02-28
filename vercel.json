@@ -4,10 +4,6 @@
     {
       "source": "/upload",
       "destination": "/api/upload"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/api/download?filename=$1"
     }
   ]
 }
