@@ -9,7 +9,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname) => {
+      onBeforeGenerateToken: async () => {
         const supabase = await createClient();
         const {
           data: { user },
@@ -34,7 +34,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           tokenPayload: JSON.stringify({ userId: user.id }),
         };
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
+      onUploadCompleted: async () => {
         // Blob upload finished successfully on Vercel Edge Server.
         // Database update will be triggered from the client for UI responsiveness.
       },
