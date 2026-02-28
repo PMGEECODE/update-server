@@ -4,7 +4,7 @@ CREATE SCHEMA IF NOT EXISTS auth;
 -- Create releases table
 CREATE TABLE IF NOT EXISTS public.releases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  version TEXT NOT NULL UNIQUE,
+  version TEXT NOT NULL,
   platform TEXT NOT NULL,
   filename TEXT NOT NULL,
   blob_url TEXT NOT NULL,
