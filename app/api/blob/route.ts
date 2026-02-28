@@ -6,13 +6,24 @@ export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
 
   try {
+    const blobToken =
+      process.env.BLOB_READ_WRITE_TOKEN ||
+      process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN ||
+      Object.entries(process.env).find(([key]) =>
+        key.includes("BLOB_READ_WRITE_TOKEN"),
+      )?.[1];
+
     const jsonResponse = await handleUpload({
       body,
       request,
-      token:
-        process.env.BLOB_READ_WRITE_TOKEN ||
-        process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN,
+      token: blobToken,
       onBeforeGenerateToken: async () => {
+        if (!blobToken) {
+          throw new Error(
+            "Vercel Blob token not found in environment (checked BLOB_READ_WRITE_TOKEN and variations). Please ensure your environment variables are set and the app is redeployed.",
+          );
+        }
+
         const supabase = await createClient();
         const {
           data: { user },
