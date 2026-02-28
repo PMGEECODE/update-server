@@ -44,8 +44,6 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       const blob = await upload(blobPath, file, {
         access: "public",
         handleUploadUrl: "/api/blob",
-        addRandomSuffix: false,
-        allowOverwrite: true,
         // @ts-ignore: IDE might have stale types from older @vercel/blob version
         onUploadProgress: (progressEvent: any) => {
           setProgress(progressEvent.percentage);
