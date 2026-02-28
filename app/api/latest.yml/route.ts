@@ -5,13 +5,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const platform = request.nextUrl.searchParams.get("platform");
+    let platform = request.nextUrl.searchParams.get("platform");
 
+    // Fallback: Detect from path if query omitted
     if (!platform) {
-      return NextResponse.json(
-        { error: "Missing platform parameter" },
-        { status: 400 },
-      );
+      const path = request.nextUrl.pathname;
+      if (path.includes("mac")) platform = "darwin";
+      else if (path.includes("linux")) platform = "linux";
+      else platform = "win32";
     }
 
     const supabase = await createClient();
@@ -36,25 +37,37 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error || !latestRelease) {
-      return new NextResponse(`version: null\nplatform: ${platform}\n`, {
-        status: 200,
-        headers: { "Content-Type": "text/yaml" },
-      });
+      return new NextResponse(
+        `version: ${latestRelease?.version ?? "0.0.0"}\nplatform: ${platform}\n`,
+        {
+          status: 200,
+          headers: { "Content-Type": "text/yaml" },
+        },
+      );
     }
 
     const release = latestRelease.releases as any;
 
-    // Generate YAML manifest for electron-updater
+    // Generate standard YAML manifest for electron-updater
     const yaml = `version: ${latestRelease.version}
-platform: ${platform}
-url: ${release.blob_url}
+files:
+  - url: ${release.blob_url}
+    sha512: ${release.checksum}
+    size: ${release.file_size}
+path: ${release.blob_url}
 sha512: ${release.checksum}
 releaseDate: ${new Date().toISOString()}
 `;
 
     return new NextResponse(yaml, {
       status: 200,
-      headers: { "Content-Type": "text/yaml" },
+      headers: {
+        "Content-Type": "text/yaml; charset=utf-8",
+        "Cache-Control":
+          "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
     });
   } catch (error) {
     console.error("Manifest error:", error);
