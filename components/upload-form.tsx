@@ -1,61 +1,88 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 interface UploadFormProps {
-  onUploadSuccess: () => void
+  onUploadSuccess: () => void;
 }
 
 export function UploadForm({ onUploadSuccess }: UploadFormProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [version, setVersion] = useState('')
-  const [platform, setPlatform] = useState('win32')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [file, setFile] = useState<File | null>(null);
+  const [version, setVersion] = useState("");
+  const [platform, setPlatform] = useState("win32");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
+    e.preventDefault();
+    setError("");
+    setSuccess("");
 
     if (!file || !version || !platform) {
-      setError('Please fill in all fields')
-      return
+      setError("Please fill in all fields");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('version', version)
-      formData.append('platform', platform)
+      // 1. Calculate File Checksum safely in the browser
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const checksum = hashArray
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 
-      const response = await fetch('/api/releases/upload', {
-        method: 'POST',
-        body: formData,
-      })
+      const blobPath = `/releases/${platform}/${version}/${file.name}`;
+
+      // 2. Direct-to-Edge Vercel Blob Upload (Bypasses 4MB limit)
+      const blob = await upload(blobPath, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob",
+      });
+
+      // 3. Save release metadata in the database
+      const response = await fetch("/api/releases/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          version,
+          platform,
+          filename: file.name,
+          blob_url: blob.url,
+          checksum,
+          file_size: file.size,
+        }),
+      });
 
       if (!response.ok) {
-        const data = await response.json()
-        setError(data.error || 'Upload failed')
-        return
+        const data = await response.json();
+        setError(data.error || "Database save failed");
+        return;
       }
 
-      setSuccess('File uploaded successfully!')
-      setFile(null)
-      setVersion('')
-      onUploadSuccess()
-    } catch (err) {
-      setError('An unexpected error occurred')
+      setSuccess("File uploaded successfully!");
+      setFile(null);
+      setVersion("");
+      onUploadSuccess();
+    } catch (err: any) {
+      console.error(err);
+      setError(
+        `An unexpected error occurred: ${err.message || "Check console"}`,
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleUpload} className="bg-secondary p-6 rounded-lg space-y-4">
+    <form
+      onSubmit={handleUpload}
+      className="bg-secondary p-6 rounded-lg space-y-4"
+    >
       <h2 className="text-xl font-semibold">Upload Release</h2>
 
       {error && (
@@ -118,8 +145,8 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
         disabled={loading}
         className="w-full bg-primary text-primary-foreground py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
       >
-        {loading ? 'Uploading...' : 'Upload Release'}
+        {loading ? "Uploading..." : "Upload Release"}
       </button>
     </form>
-  )
+  );
 }
