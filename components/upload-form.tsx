@@ -12,6 +12,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
   const [version, setVersion] = useState("");
   const [platform, setPlatform] = useState("win32");
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -26,6 +27,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
     }
 
     setLoading(true);
+    setProgress(0);
 
     try {
       // 1. Calculate File Checksum safely in the browser
@@ -42,7 +44,11 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       const blob = await upload(blobPath, file, {
         access: "public",
         handleUploadUrl: "/api/blob",
-      });
+        // @ts-ignore: IDE might have stale types from older @vercel/blob version
+        onUploadProgress: (progressEvent: any) => {
+          setProgress(progressEvent.percentage);
+        },
+      } as any);
 
       // 3. Save release metadata in the database
       const response = await fetch("/api/releases/upload", {
@@ -75,6 +81,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       );
     } finally {
       setLoading(false);
+      setProgress(0);
     }
   };
 
@@ -139,6 +146,23 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
         />
         {file && <p className="text-sm text-foreground/60 mt-2">{file.name}</p>}
       </div>
+
+      {loading && (
+        <div className="w-full mt-2">
+          <div className="flex justify-between text-sm mb-1 px-1">
+            <span className="font-medium text-foreground">Uploading...</span>
+            <span className="font-medium text-foreground">
+              {Math.round(progress)}%
+            </span>
+          </div>
+          <div className="w-full bg-black/10 dark:bg-white/10 rounded-full h-4 overflow-hidden">
+            <div
+              className="bg-primary h-full rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <button
         type="submit"

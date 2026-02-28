@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       !filename ||
       !blob_url ||
       !checksum ||
-      !file_size
+      file_size === undefined
     ) {
       return NextResponse.json(
         {
@@ -39,15 +39,18 @@ export async function POST(request: NextRequest) {
     // Save metadata to Supabase
     const { data: release, error } = await supabase
       .from("releases")
-      .insert({
-        version,
-        platform,
-        filename,
-        blob_url,
-        checksum,
-        file_size,
-        created_by: user.id,
-      })
+      .upsert(
+        {
+          version,
+          platform,
+          filename,
+          blob_url,
+          checksum,
+          file_size,
+          created_by: user.id,
+        },
+        { onConflict: "version,platform" },
+      )
       .select()
       .single();
 
