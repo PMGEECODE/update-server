@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { initDatabase } from "@/lib/db-init";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
+    await initDatabase();
     const supabase = await createClient();
 
     const {
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
+    await initDatabase();
     const supabase = await createClient();
 
     const {

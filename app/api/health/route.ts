@@ -1,10 +1,25 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import { initDatabase } from "@/lib/db-init";
 
-export const revalidate = 0
+export const revalidate = 0;
 
 export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-  })
+  try {
+    await initDatabase();
+    return NextResponse.json({
+      status: "ok",
+      message: "Database initialized/verified",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Migration failed:", error);
+    return NextResponse.json(
+      {
+        status: "error",
+        message: "Database initialization failed",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 },
+    );
+  }
 }
