@@ -47,6 +47,7 @@ async function runUpload() {
       access: "public",
       addRandomSuffix: false, // Ensures existing filename is overwritten cleanly
       multipart: true, // Forces multipart upload which bypasses all size limits!
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
     console.log(`✅ Success! Binary uploaded to: ${exeResult.url}`);
 
@@ -55,6 +56,7 @@ async function runUpload() {
     const ymlResult = await put(ymlFile, ymlBuffer, {
       access: "public",
       addRandomSuffix: false,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
     console.log(`✅ Success! Manifest uploaded to: ${ymlResult.url}`);
 
