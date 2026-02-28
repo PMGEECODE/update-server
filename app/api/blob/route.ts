@@ -32,6 +32,8 @@ export async function POST(request: Request): Promise<NextResponse> {
             "application/macbinary",
           ],
           tokenPayload: JSON.stringify({ userId: user.id }),
+          addRandomSuffix: false,
+          allowOverwrite: true,
         };
       },
       onUploadCompleted: async () => {
