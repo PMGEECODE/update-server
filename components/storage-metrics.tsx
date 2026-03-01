@@ -67,8 +67,8 @@ export function StorageMetrics({ refreshTrigger = 0 }: StorageMetricsProps) {
     );
   }
 
-  const warningThreshold = 0.8; // 80% warning level
-  const errorThreshold = 0.95; // 95% error level
+  const warningThreshold = 80; // 80% warning level
+  const errorThreshold = 95; // 95% error level
   let statusColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
   let statusText = "Healthy";
 
