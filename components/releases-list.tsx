@@ -133,16 +133,12 @@ export function ReleasesList({ refreshTrigger }: ReleasesListProps) {
                   </span>
                 </td>
                 <td className="py-3 px-4">
-                  {!release.published && (
-                    <button
-                      onClick={() =>
-                        handlePublish(release.id, release.platform)
-                      }
-                      className="text-primary hover:underline text-sm font-medium"
-                    >
-                      Publish
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handlePublish(release.id, release.platform)}
+                    className="text-primary hover:underline text-sm font-medium"
+                  >
+                    {release.published ? "Republish" : "Publish"}
+                  </button>
                 </td>
               </tr>
             ))}
