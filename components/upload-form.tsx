@@ -30,9 +30,9 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
     setProgress(0);
 
     try {
-      // 1. Calculate File Checksum safely in the browser
+      // 1. Calculate File Checksum safely in the browser (SHA-512 for Electron compatibility)
       const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashBuffer = await crypto.subtle.digest("SHA-512", arrayBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const checksum = hashArray
         .map((b) => b.toString(16).padStart(2, "0"))
