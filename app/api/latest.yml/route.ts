@@ -17,33 +17,22 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Get the latest release for this platform
-    const { data: latestRelease, error } = await supabase
-      .from("latest_releases")
-      .select(
-        `
-        version,
-        platform,
-        release_id,
-        releases!release_id (
-          filename,
-          blob_url,
-          checksum,
-          file_size
-        )
-      `,
-      )
+    // Get the latest published release for this platform directly
+    const { data: release, error } = await supabase
+      .from("releases")
+      .select("version, filename, blob_url, checksum, file_size")
       .eq("platform", platform)
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .single();
 
-    if (error || !latestRelease) {
+    if (error || !release) {
       return new NextResponse(`version: 0.0.0\nplatform: ${platform}\n`, {
         status: 200,
         headers: { "Content-Type": "text/yaml" },
       });
     }
-
-    const release = latestRelease.releases as any;
 
     // Convert hex checksum to base64 for electron-updater compatibility
     const checksumBase64 = Buffer.from(release.checksum, "hex").toString(
@@ -51,7 +40,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Generate standard YAML manifest for electron-updater
-    const yaml = `version: ${latestRelease.version}
+    const yaml = `version: ${release.version}
 files:
   - url: ${release.blob_url}
     sha512: ${checksumBase64}
