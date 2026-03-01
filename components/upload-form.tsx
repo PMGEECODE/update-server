@@ -115,7 +115,9 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    setFiles(selectedFiles);
+    setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
+    // Reset the input value to allow selecting the same file again
+    e.target.value = '';
   };
 
   const removeFile = (index: number) => {
@@ -181,9 +183,21 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       </div>
 
       <div>
-        <label htmlFor="files" className="block text-sm font-medium mb-2">
-          Binary Files (multiple)
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="files" className="block text-sm font-medium mb-2">
+            Binary Files (multiple)
+          </label>
+          {files.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFiles([])}
+              disabled={loading}
+              className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
         <input
           id="files"
           type="file"
