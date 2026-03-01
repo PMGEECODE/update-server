@@ -45,14 +45,19 @@ export async function GET(request: NextRequest) {
 
     const release = latestRelease.releases as any;
 
+    // Convert hex checksum to base64 for electron-updater compatibility
+    const checksumBase64 = Buffer.from(release.checksum, "hex").toString(
+      "base64",
+    );
+
     // Generate standard YAML manifest for electron-updater
     const yaml = `version: ${latestRelease.version}
 files:
   - url: ${release.blob_url}
-    sha512: ${release.checksum}
+    sha512: ${checksumBase64}
     size: ${release.file_size}
 path: ${release.blob_url}
-sha512: ${release.checksum}
+sha512: ${checksumBase64}
 releaseDate: ${new Date().toISOString()}
 `;
 
