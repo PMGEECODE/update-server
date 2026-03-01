@@ -69,14 +69,14 @@ export function StorageMetrics({ refreshTrigger = 0 }: StorageMetricsProps) {
 
   const warningThreshold = 0.8; // 80% warning level
   const errorThreshold = 0.95; // 95% error level
-  let statusColor = "bg-green-100 text-green-800";
+  let statusColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
   let statusText = "Healthy";
 
   if (metrics.percentageUsed >= errorThreshold) {
-    statusColor = "bg-red-100 text-red-800";
+    statusColor = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
     statusText = "Critical";
   } else if (metrics.percentageUsed >= warningThreshold) {
-    statusColor = "bg-yellow-100 text-yellow-800";
+    statusColor = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
     statusText = "Warning";
   }
 
@@ -126,8 +126,8 @@ export function StorageMetrics({ refreshTrigger = 0 }: StorageMetricsProps) {
         </div>
       </div>
 
-      {metrics.percentageUsed >= 0.9 && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+      {metrics.percentageUsed >= warningThreshold && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded text-sm">
           Storage is nearly full. Consider deleting older releases to free up space.
         </div>
       )}

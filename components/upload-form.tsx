@@ -157,7 +157,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
           value={platform}
           onChange={(e) => setPlatform(e.target.value)}
           disabled={loading}
-          className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+          className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 text-foreground"
         >
           <option value="win32">Windows (win32)</option>
           <option value="darwin">macOS (darwin)</option>
@@ -176,7 +176,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
           onChange={(e) => setVersion(e.target.value)}
           placeholder="1.0.0"
           disabled={loading}
-          className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+          className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 text-foreground"
         />
       </div>
 
@@ -190,7 +190,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
           multiple
           onChange={handleFileSelect}
           disabled={loading}
-          className="w-full disabled:opacity-50"
+          className="w-full bg-background border border-border rounded-lg text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50"
         />
         {files.length > 0 && (
           <div className="mt-2 space-y-2">
