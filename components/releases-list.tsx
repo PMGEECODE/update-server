@@ -18,12 +18,14 @@ interface Release {
 
 interface ReleasesListProps {
   refreshTrigger: number;
+  onDelete?: () => void;
 }
 
-export function ReleasesList({ refreshTrigger }: ReleasesListProps) {
+export function ReleasesList({ refreshTrigger, onDelete }: ReleasesListProps) {
   const [releases, setReleases] = useState<Release[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchReleases = async () => {
     try {
@@ -66,6 +68,38 @@ export function ReleasesList({ refreshTrigger }: ReleasesListProps) {
       fetchReleases();
     } catch (err) {
       alert("An unexpected error occurred");
+    }
+  };
+
+  const handleDelete = async (releaseId: string, filename: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${filename}"? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(releaseId);
+    try {
+      const response = await fetch("/api/releases/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ releaseId }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(`Failed to delete release: ${data.error || "Unknown error"}`);
+        return;
+      }
+
+      setReleases(releases.filter((r) => r.id !== releaseId));
+      onDelete?.();
+    } catch (err) {
+      alert("An error occurred while deleting the release");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -132,12 +166,20 @@ export function ReleasesList({ refreshTrigger }: ReleasesListProps) {
                     {release.published ? "Published" : "Unpublished"}
                   </span>
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 space-x-2 flex flex-nowrap">
                   <button
                     onClick={() => handlePublish(release.id, release.platform)}
                     className="text-primary hover:underline text-sm font-medium"
                   >
                     {release.published ? "Republish" : "Publish"}
+                  </button>
+                  <span className="text-foreground/20">|</span>
+                  <button
+                    onClick={() => handleDelete(release.id, release.filename)}
+                    disabled={deletingId === release.id}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deletingId === release.id ? "Deleting..." : "Delete"}
                   </button>
                 </td>
               </tr>

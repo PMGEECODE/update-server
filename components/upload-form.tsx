@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
+import { UploadQueue, type UploadItem } from "@/lib/upload-queue";
 
 interface UploadFormProps {
   onUploadSuccess: () => void;
 }
 
 export function UploadForm({ onUploadSuccess }: UploadFormProps) {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [version, setVersion] = useState("");
   const [platform, setPlatform] = useState("win32");
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [queueItems, setQueueItems] = useState<UploadItem[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -21,69 +22,112 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
     setError("");
     setSuccess("");
 
-    if (!file || !version || !platform) {
-      setError("Please fill in all fields");
+    if (files.length === 0 || !version || !platform) {
+      setError("Please fill in all fields and select at least one file");
       return;
     }
 
     setLoading(true);
-    setProgress(0);
+    const queue = new UploadQueue({
+      maxConcurrent: 2,
+      onProgress: (items) => setQueueItems([...items]),
+      onItemError: (item) => {
+        console.error(`Upload failed for ${item.file.name}:`, item.error);
+      },
+    });
+
+    let successCount = 0;
+    const totalFiles = files.length;
 
     try {
-      // 1. Calculate File Checksum safely in the browser (SHA-512 for Electron compatibility)
-      const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-512", arrayBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const checksum = hashArray
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-
-      const blobPath = `/releases/${platform}/${version}/${file.name}`;
-
-      // 2. Direct-to-Edge Vercel Blob Upload (Bypasses 4MB limit)
-      const blob = await upload(blobPath, file, {
-        access: "public",
-        handleUploadUrl: "/api/blob",
-        // @ts-ignore: IDE might have stale types from older @vercel/blob version
-        onUploadProgress: (progressEvent: any) => {
-          setProgress(progressEvent.percentage);
-        },
-      } as any);
-
-      // 3. Save release metadata in the database
-      const response = await fetch("/api/releases/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          version,
-          platform,
-          filename: file.name,
-          blob_url: blob.url,
-          checksum,
-          file_size: file.size,
-        }),
+      // Add all files to queue
+      files.forEach((file) => {
+        queue.addItem(file, version, platform);
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Database save failed");
-        return;
-      }
+      // Process queue
+      await queue.processQueue(async (item) => {
+        try {
+          // Calculate checksum
+          const arrayBuffer = await item.file.arrayBuffer();
+          const hashBuffer = await crypto.subtle.digest("SHA-512", arrayBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const checksum = hashArray
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
 
-      setSuccess("File uploaded successfully!");
-      setFile(null);
-      setVersion("");
-      onUploadSuccess();
+          const blobPath = `/releases/${item.platform}/${item.version}/${item.file.name}`;
+
+          // Upload to Vercel Blob
+          const blob = await upload(blobPath, item.file, {
+            access: "public",
+            handleUploadUrl: "/api/blob",
+            // @ts-ignore
+            onUploadProgress: (progressEvent: any) => {
+              queue.updateProgress(item.id, progressEvent.percentage);
+            },
+          } as any);
+
+          // Save to database
+          const response = await fetch("/api/releases/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              version: item.version,
+              platform: item.platform,
+              filename: item.file.name,
+              blob_url: blob.url,
+              checksum,
+              file_size: item.file.size,
+            }),
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "Database save failed");
+          }
+
+          successCount++;
+          queue.updateProgress(item.id, 100);
+        } catch (err: any) {
+          throw err;
+        }
+      });
+
+      if (successCount === totalFiles) {
+        setSuccess(`Successfully uploaded ${successCount} file(s)!`);
+        setFiles([]);
+        setVersion("");
+        onUploadSuccess();
+      } else {
+        setSuccess(
+          `Uploaded ${successCount}/${totalFiles} files. Check console for errors.`,
+        );
+      }
     } catch (err: any) {
       console.error(err);
-      setError(
-        `An unexpected error occurred: ${err.message || "Check console"}`,
-      );
+      setError(`Upload error: ${err.message || "Check console"}`);
     } finally {
       setLoading(false);
-      setProgress(0);
+      setQueueItems([]);
     }
   };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    setFiles(selectedFiles);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(files.filter((_, i) => i !== index));
+  };
+
+  const overallProgress = queueItems.length > 0
+    ? Math.round(
+        queueItems.reduce((sum, item) => sum + item.progress, 0) /
+          queueItems.length,
+      )
+    : 0;
 
   return (
     <form
@@ -93,13 +137,13 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       <h2 className="text-xl font-semibold">Upload Release</h2>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
           {success}
         </div>
       )}
@@ -112,7 +156,8 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
           id="platform"
           value={platform}
           onChange={(e) => setPlatform(e.target.value)}
-          className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          disabled={loading}
+          className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
         >
           <option value="win32">Windows (win32)</option>
           <option value="darwin">macOS (darwin)</option>
@@ -130,46 +175,110 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
           value={version}
           onChange={(e) => setVersion(e.target.value)}
           placeholder="1.0.0"
-          className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          disabled={loading}
+          className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
         />
       </div>
 
       <div>
-        <label htmlFor="file" className="block text-sm font-medium mb-2">
-          Binary File
+        <label htmlFor="files" className="block text-sm font-medium mb-2">
+          Binary Files (multiple)
         </label>
         <input
-          id="file"
+          id="files"
           type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="w-full"
+          multiple
+          onChange={handleFileSelect}
+          disabled={loading}
+          className="w-full disabled:opacity-50"
         />
-        {file && <p className="text-sm text-foreground/60 mt-2">{file.name}</p>}
+        {files.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {files.map((file, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center bg-background/50 p-2 rounded text-sm"
+              >
+                <span className="text-foreground/80 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  disabled={loading}
+                  className="text-red-600 hover:text-red-700 text-xs font-medium disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <p className="text-xs text-foreground/60">
+              {files.length} file(s) selected
+            </p>
+          </div>
+        )}
       </div>
 
-      {loading && (
-        <div className="w-full mt-2">
-          <div className="flex justify-between text-sm mb-1 px-1">
-            <span className="font-medium text-foreground">Uploading...</span>
-            <span className="font-medium text-foreground">
-              {Math.round(progress)}%
-            </span>
+      {loading && queueItems.length > 0 && (
+        <div className="space-y-3 bg-background/50 p-4 rounded-lg">
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="font-medium">Overall Progress</span>
+              <span className="font-medium">{overallProgress}%</span>
+            </div>
+            <div className="w-full bg-black/10 dark:bg-white/10 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-primary h-full rounded-full transition-all duration-300"
+                style={{ width: `${overallProgress}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-black/10 dark:bg-white/10 rounded-full h-4 overflow-hidden">
-            <div
-              className="bg-primary h-full rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${progress}%` }}
-            />
+
+          <div className="max-h-40 overflow-y-auto space-y-2">
+            {queueItems.map((item) => (
+              <div key={item.id} className="text-xs">
+                <div className="flex justify-between mb-1">
+                  <span className="truncate text-foreground/80">
+                    {item.file.name}
+                  </span>
+                  <span
+                    className={`font-medium ${
+                      item.status === "completed"
+                        ? "text-green-600"
+                        : item.status === "failed"
+                          ? "text-red-600"
+                          : item.status === "uploading"
+                            ? "text-blue-600"
+                            : "text-foreground/60"
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+                <div className="w-full bg-black/10 dark:bg-white/10 rounded h-1.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded transition-all duration-200 ${
+                      item.status === "completed"
+                        ? "bg-green-500"
+                        : item.status === "failed"
+                          ? "bg-red-500"
+                          : "bg-blue-500"
+                    }`}
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || files.length === 0}
         className="w-full bg-primary text-primary-foreground py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
       >
-        {loading ? "Uploading..." : "Upload Release"}
+        {loading
+          ? `Uploading ${overallProgress}%...`
+          : `Upload ${files.length} File${files.length !== 1 ? "s" : ""}`}
       </button>
     </form>
   );

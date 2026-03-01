@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { UploadForm } from '@/components/upload-form'
 import { ReleasesList } from '@/components/releases-list'
+import { StorageMetrics } from '@/components/storage-metrics'
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null)
@@ -40,6 +41,10 @@ export default function DashboardPage() {
     setRefreshTrigger((prev) => prev + 1)
   }
 
+  const handleDelete = () => {
+    setRefreshTrigger((prev) => prev + 1)
+  }
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
@@ -62,12 +67,15 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <StorageMetrics refreshTrigger={refreshTrigger} />
+        </div>
         <div className="grid md:grid-cols-3 gap-8">
           <div>
             <UploadForm onUploadSuccess={handleUploadSuccess} />
           </div>
           <div className="md:col-span-2">
-            <ReleasesList refreshTrigger={refreshTrigger} />
+            <ReleasesList refreshTrigger={refreshTrigger} onDelete={handleDelete} />
           </div>
         </div>
       </main>
