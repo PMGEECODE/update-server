@@ -66,7 +66,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-9xl mx-auto px-4 py-8">
         <div className="mb-8">
           <StorageMetrics refreshTrigger={refreshTrigger} />
         </div>
